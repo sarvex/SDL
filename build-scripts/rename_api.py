@@ -34,7 +34,7 @@ def main():
         header = pathlib.Path(SDL_INCLUDE_DIR / args.header)
 
     if not header.exists():
-        raise Exception("Couldn't find header %s" % header)
+        raise Exception(f"Couldn't find header {header}")
 
     header_text = header.read_text()
 
@@ -46,10 +46,10 @@ def main():
         newname = args.args[i + 1]
 
         if not args.skip_header_check and not re.search((r"\b%s\b" % oldname), header_text):
-            raise Exception("Couldn't find %s in %s" % (oldname, header))
+            raise Exception(f"Couldn't find {oldname} in {header}")
 
         replacements[ oldname ] = newname
-        replacements[ oldname + "_REAL" ] = newname + "_REAL"
+        replacements[f"{oldname}_REAL"] = f"{newname}_REAL"
         i += 2
 
     regex = create_regex_from_replacements(replacements)
@@ -86,37 +86,35 @@ def add_content(lines, i, content, add_trailing_line):
 
 
 def add_symbol_to_coccinelle(symbol_type, oldname, newname):
-    file = open(SDL_BUILD_SCRIPTS / "SDL_migration.cocci", "a")
-    # Append-adds at last
+    with open(SDL_BUILD_SCRIPTS / "SDL_migration.cocci", "a") as file:
+        # Append-adds at last
 
-    if symbol_type == "function":
-        file.write("@@\n")
-        file.write("@@\n")
-        file.write("- %s\n" % oldname)
-        file.write("+ %s\n" % newname)
-        file.write("  (...)\n")
+        if symbol_type == "function":
+            file.write("@@\n")
+            file.write("@@\n")
+            file.write("- %s\n" % oldname)
+            file.write("+ %s\n" % newname)
+            file.write("  (...)\n")
 
-    if symbol_type == "symbol":
-        file.write("@@\n")
-        file.write("@@\n")
-        file.write("- %s\n" % oldname)
-        file.write("+ %s\n" % newname)
+        if symbol_type == "symbol":
+            file.write("@@\n")
+            file.write("@@\n")
+            file.write("- %s\n" % oldname)
+            file.write("+ %s\n" % newname)
 
-    # double check ?
-    if symbol_type == "hint":
-        file.write("@@\n")
-        file.write("@@\n")
-        file.write("- %s\n" % oldname)
-        file.write("+ %s\n" % newname)
+        # double check ?
+        if symbol_type == "hint":
+            file.write("@@\n")
+            file.write("@@\n")
+            file.write("- %s\n" % oldname)
+            file.write("+ %s\n" % newname)
 
-    if symbol_type == "enum" or symbol_type == "structure":
-        file.write("@@\n")
-        file.write("typedef %s, %s;\n" % (oldname, newname))
-        file.write("@@\n")
-        file.write("- %s\n" % oldname)
-        file.write("+ %s\n" % newname)
-
-    file.close()
+        if symbol_type in ["enum", "structure"]:
+            file.write("@@\n")
+            file.write("typedef %s, %s;\n" % (oldname, newname))
+            file.write("@@\n")
+            file.write("- %s\n" % oldname)
+            file.write("+ %s\n" % newname)
 
 
 def add_symbol_to_oldnames(header, oldname, newname):
@@ -127,41 +125,38 @@ def add_symbol_to_oldnames(header, oldname, newname):
     while i < len(lines):
         line = lines[i]
         if line == "#ifdef SDL_ENABLE_OLD_NAMES":
-            if mode == 0:
-                mode = 1
-                section = ("/* ##%s */" % header)
-                section_added = False
-                content = ("#define %s %s" % (oldname, newname))
-                content_added = False
-            else:
+            if mode != 0:
                 raise Exception("add_symbol_to_oldnames(): expected mode 0")
+            mode = 1
+            section = f"/* ##{header} */"
+            section_added = False
+            content = f"#define {oldname} {newname}"
+            content_added = False
         elif line == "#elif !defined(SDL_DISABLE_OLD_NAMES)":
-            if mode == 1:
-                if not section_added:
-                    i = add_line(lines, i, section)
-
-                if not content_added:
-                    i = add_content(lines, i, content, True)
-
-                mode = 2
-                section = ("/* ##%s */" % header)
-                section_added = False
-                content = ("#define %s %s_renamed_%s" % (oldname, oldname, newname))
-                content_added = False
-            else:
+            if mode != 1:
                 raise Exception("add_symbol_to_oldnames(): expected mode 1")
+            if not section_added:
+                i = add_line(lines, i, section)
+
+            if not content_added:
+                i = add_content(lines, i, content, True)
+
+            mode = 2
+            section = f"/* ##{header} */"
+            section_added = False
+            content = f"#define {oldname} {oldname}_renamed_{newname}"
+            content_added = False
         elif line == "#endif /* SDL_ENABLE_OLD_NAMES */":
-            if mode == 2:
-                if not section_added:
-                    i = add_line(lines, i, section)
-
-                if not content_added:
-                    i = add_content(lines, i, content, True)
-
-                mode = 3
-            else:
+            if mode != 2:
                 raise Exception("add_symbol_to_oldnames(): expected mode 2")
-        elif line != "" and (mode == 1 or mode == 2):
+            if not section_added:
+                i = add_line(lines, i, section)
+
+            if not content_added:
+                i = add_content(lines, i, content, True)
+
+            mode = 3
+        elif line != "" and mode in [1, 2]:
             if line.startswith("/* ##"):
                 if section_added:
                     if not content_added:
@@ -188,14 +183,14 @@ def add_symbol_to_oldnames(header, oldname, newname):
 def add_symbol_to_migration(header, symbol_type, oldname, newname):
     file = (SDL_ROOT / "docs/README-migration.md")
     lines = file.read_text().splitlines()
-    section = ("## %s" % header)
+    section = f"## {header}"
     section_added = False
-    note = ("The following %ss have been renamed:" % symbol_type)
+    note = f"The following {symbol_type}s have been renamed:"
     note_added = False
     if symbol_type == "function":
-        content = ("* %s() => %s()" % (oldname, newname))
+        content = f"* {oldname}() => {newname}()"
     else:
-        content = ("* %s => %s" % (oldname, newname))
+        content = f"* {oldname} => {newname}"
     content_added = False
     mode = 0
     i = 0

@@ -17,7 +17,7 @@ SDL_INCLUDE_DIR = SDL_ROOT / "include/SDL3"
 def main():
     if args.all_symbols:
         if len(args.args) < 1:
-            print("Usage: %s --all-symbols files_or_directories ..." % sys.argv[0])
+            print(f"Usage: {sys.argv[0]} --all-symbols files_or_directories ...")
             exit(1)
 
         replacements = get_all_replacements()
@@ -25,7 +25,7 @@ def main():
 
     else:
         if len(args.args) < 3:
-            print("Usage: %s oldname newname files_or_directories ..." % sys.argv[0])
+            print(f"Usage: {sys.argv[0]} oldname newname files_or_directories ...")
             exit(1)
 
         replacements = { args.args[0]: args.args[1] }
@@ -39,7 +39,7 @@ def main():
     for entry in entries:
         path = pathlib.Path(entry)
         if not path.exists():
-            print("%s doesn't exist, skipping" % entry)
+            print(f"{entry} doesn't exist, skipping")
             continue
 
         replace_symbols_in_path(path, regex, replacements)
@@ -79,7 +79,7 @@ def create_regex_from_replacements(replacements):
 
 
 def create_substring_regex_from_replacements(replacements):
-    return re.compile(r"(%s)" % "|".join(map(re.escape, replacements.keys())))
+    return re.compile(f'({"|".join(map(re.escape, replacements.keys()))})')
 
 
 def replace_symbols_in_file(file, regex, replacements):
@@ -91,9 +91,9 @@ def replace_symbols_in_file(file, regex, replacements):
                 with file.open("w", encoding="UTF-8", newline="") as wfp:
                     wfp.write(contents)
     except UnicodeDecodeError:
-        print("%s is not text, skipping" % file)
+        print(f"{file} is not text, skipping")
     except Exception as err:
-        print("%s" % err)
+        print(f"{err}")
 
 
 def replace_symbols_in_dir(path, regex, replacements):
@@ -101,7 +101,7 @@ def replace_symbols_in_dir(path, regex, replacements):
         if entry.is_dir():
             replace_symbols_in_dir(entry, regex, replacements)
         else:
-            print("Processing %s" % entry)
+            print(f"Processing {entry}")
             replace_symbols_in_file(entry, regex, replacements)
 
 

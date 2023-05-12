@@ -17,7 +17,7 @@ def main():
     for entry in args.args:
         path = pathlib.Path(entry)
         if not path.exists():
-            print("%s doesn't exist, skipping" % entry)
+            print(f"{entry} doesn't exist, skipping")
             continue
 
         replace_headers_in_path(path, replacements)
@@ -34,9 +34,9 @@ def replace_headers_in_file(file, replacements):
                 with file.open("w", encoding="UTF-8", newline="") as wfp:
                     wfp.write(contents)
     except UnicodeDecodeError:
-        print("%s is not text, skipping" % file)
+        print(f"{file} is not text, skipping")
     except Exception as err:
-        print("%s" % err)
+        print(f"{err}")
 
 
 def replace_headers_in_dir(path, replacements):
@@ -44,7 +44,7 @@ def replace_headers_in_dir(path, replacements):
         if entry.is_dir():
             replace_headers_in_dir(entry, replacements)
         else:
-            print("Processing %s" % entry)
+            print(f"Processing {entry}")
             replace_headers_in_file(entry, replacements)
 
 
